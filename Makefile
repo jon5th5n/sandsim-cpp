@@ -1,409 +1,470 @@
-#**************************************************************************************************
-#
-#   raylib makefile for Desktop platforms, Raspberry Pi, Android and HTML5
-#
-#   Copyright (c) 2013-2019 Ramon Santamaria (@raysan5)
-#
-#   This software is provided "as-is", without any express or implied warranty. In no event
-#   will the authors be held liable for any damages arising from the use of this software.
-#
-#   Permission is granted to anyone to use this software for any purpose, including commercial
-#   applications, and to alter it and redistribute it freely, subject to the following restrictions:
-#
-#     1. The origin of this software must not be misrepresented; you must not claim that you
-#     wrote the original software. If you use this software in a product, an acknowledgment
-#     in the product documentation would be appreciated but is not required.
-#
-#     2. Altered source versions must be plainly marked as such, and must not be misrepresented
-#     as being the original software.
-#
-#     3. This notice may not be removed or altered from any source distribution.
-#
-#**************************************************************************************************
+.SUFFIXES:
+SUFFIXES =
+.SUFFIXES: .c .cpp .h .hpp .rc .res .inl .o .d .asm
 
-.PHONY: all clean
 
-# Define required raylib variables
-PROJECT_NAME       ?= game
-RAYLIB_VERSION     ?= 3.5.0
-RAYLIB_API_VERSION ?= 300
-RAYLIB_PATH        ?= ..\..
+#==============================================================================
+MAKEFLAGS += --no-print-directory
+#==============================================================================
 
-# Define compiler path on Windows
-COMPILER_PATH      ?= C:/raylib/mingw/bin
+SHELL := /bin/sh
 
-# Define default options
-# One of PLATFORM_DESKTOP, PLATFORM_RPI, PLATFORM_ANDROID, PLATFORM_WEB
-PLATFORM           ?= PLATFORM_DESKTOP
-
-# Locations of your newly installed library and associated headers. See ../src/Makefile
-# On Linux, if you have installed raylib but cannot compile the examples, check that
-# the *_INSTALL_PATH values here are the same as those in src/Makefile or point to known locations.
-# To enable system-wide compile-time and runtime linking to libraylib.so, run ../src/$ sudo make install RAYLIB_LIBTYPE_SHARED.
-# To enable compile-time linking to a special version of libraylib.so, change these variables here.
-# To enable runtime linking to a special version of libraylib.so, see EXAMPLE_RUNTIME_PATH below.
-# If there is a libraylib in both EXAMPLE_RUNTIME_PATH and RAYLIB_INSTALL_PATH, at runtime,
-# the library at EXAMPLE_RUNTIME_PATH, if present, will take precedence over the one at RAYLIB_INSTALL_PATH.
-# RAYLIB_INSTALL_PATH should be the desired full path to libraylib. No relative paths.
-DESTDIR ?= /usr/local
-RAYLIB_INSTALL_PATH ?= $(DESTDIR)/lib
-# RAYLIB_H_INSTALL_PATH locates the installed raylib header and associated source files.
-RAYLIB_H_INSTALL_PATH ?= $(DESTDIR)/include
-
-# Library type used for raylib: STATIC (.a) or SHARED (.so/.dll)
-RAYLIB_LIBTYPE        ?= STATIC
-
-# Build mode for project: DEBUG or RELEASE
-BUILD_MODE            ?= RELEASE
-
-# Use external GLFW library instead of rglfw module
-# TODO: Review usage on Linux. Target version of choice. Switch on -lglfw or -lglfw3
-USE_EXTERNAL_GLFW     ?= FALSE
-
-# Use Wayland display server protocol on Linux desktop
-# by default it uses X11 windowing system
-USE_WAYLAND_DISPLAY   ?= FALSE
-
-# Determine PLATFORM_OS in case PLATFORM_DESKTOP selected
-ifeq ($(PLATFORM),PLATFORM_DESKTOP)
-    # No uname.exe on MinGW!, but OS=Windows_NT on Windows!
-    # ifeq ($(UNAME),Msys) -> Windows
-    ifeq ($(OS),Windows_NT)
-        PLATFORM_OS=WINDOWS
-        export PATH := $(COMPILER_PATH):$(PATH)
-    else
-        UNAMEOS=$(shell uname)
-        ifeq ($(UNAMEOS),Linux)
-            PLATFORM_OS=LINUX
-        endif
-        ifeq ($(UNAMEOS),FreeBSD)
-            PLATFORM_OS=BSD
-        endif
-        ifeq ($(UNAMEOS),OpenBSD)
-            PLATFORM_OS=BSD
-        endif
-        ifeq ($(UNAMEOS),NetBSD)
-            PLATFORM_OS=BSD
-        endif
-        ifeq ($(UNAMEOS),DragonFly)
-            PLATFORM_OS=BSD
-        endif
-        ifeq ($(UNAMEOS),Darwin)
-            PLATFORM_OS=OSX
-        endif
-    endif
-endif
-ifeq ($(PLATFORM),PLATFORM_RPI)
-    UNAMEOS=$(shell uname)
-    ifeq ($(UNAMEOS),Linux)
-        PLATFORM_OS=LINUX
-    endif
+# Build platform
+PLATFORM?=linux
+# Build description (Primarily uses Debug/Release)
+BUILD?=Release
+_BUILDL := $(shell echo $(BUILD) | tr A-Z a-z)
+ifeq ($(BUILD),Tests)
+	_BUILDL := release
 endif
 
-# RAYLIB_PATH adjustment for different platforms.
-# If using GNU make, we can get the full path to the top of the tree. Windows? BSD?
-# Required for ldconfig or other tools that do not perform path expansion.
-ifeq ($(PLATFORM),PLATFORM_DESKTOP)
-    ifeq ($(PLATFORM_OS),LINUX)
-        RAYLIB_PREFIX ?= ..
-        RAYLIB_PATH    = $(realpath $(RAYLIB_PREFIX))
-    endif
-endif
-# Default path for raylib on Raspberry Pi, if installed in different path, update it!
-# This is not currently used by src/Makefile. Not sure of its origin or usage. Refer to wiki.
-# TODO: update install: target in src/Makefile for RPI, consider relation to LINUX.
-ifeq ($(PLATFORM),PLATFORM_RPI)
-    RAYLIB_PATH       ?= /home/pi/raylib
+# The sub-folder containing the target source files
+SRC_TARGET?=
+ifneq ($(SRC_TARGET),)
+	_SRC_TARGET := /$(SRC_TARGET)
 endif
 
-ifeq ($(PLATFORM),PLATFORM_WEB)
-    # Emscripten required variables
-    EMSDK_PATH          ?= C:/emsdk
-    EMSCRIPTEN_VERSION  ?= 1.38.31
-    CLANG_VERSION       = e$(EMSCRIPTEN_VERSION)_64bit
-    PYTHON_VERSION      = 2.7.13.1_64bit\python-2.7.13.amd64
-    NODE_VERSION        = 8.9.1_64bit
-    export PATH         = $(EMSDK_PATH);$(EMSDK_PATH)\clang\$(CLANG_VERSION);$(EMSDK_PATH)\node\$(NODE_VERSION)\bin;$(EMSDK_PATH)\python\$(PYTHON_VERSION);$(EMSDK_PATH)\emscripten\$(EMSCRIPTEN_VERSION);C:\raylib\MinGW\bin:$$(PATH)
-    EMSCRIPTEN          = $(EMSDK_PATH)\emscripten\$(EMSCRIPTEN_VERSION)
+# Maximum parallel jobs during build process
+MAX_PARALLEL_JOBS?=8
+
+# Dump assembly?
+DUMP_ASSEMBLY?=false
+
+# Clean output?
+CLEAN_OUTPUT?=true
+
+# If dll, build as a static library?
+BUILD_STATIC?=false
+
+# Platform specific environment variables
+-include env/.all.mk
+-include env/.$(_BUILDL).mk
+-include env/$(PLATFORM).all.mk
+-include env/$(PLATFORM).$(_BUILDL).mk
+
+# Target specific variables
+ifneq ($(SRC_TARGET),)
+-include env/$(SRC_TARGET)/.all.mk
+-include env/$(SRC_TARGET)/.$(_BUILDL).mk
+-include env/$(SRC_TARGET)/$(PLATFORM).all.mk
+-include env/$(SRC_TARGET)/$(PLATFORM).$(_BUILDL).mk
 endif
 
-# Define raylib release directory for compiled library.
-# RAYLIB_RELEASE_PATH points to provided binaries or your freshly built version
-RAYLIB_RELEASE_PATH 	?= $(RAYLIB_PATH)/src
+#==============================================================================
+# File/Folder dependencies for the production build recipe (makeproduction)
+PRODUCTION_DEPENDENCIES?=
+# Extensions to exclude from production builds
+PRODUCTION_EXCLUDE?=
+# Folder location (relative or absolute) to place the production build into
+PRODUCTION_FOLDER?=build
+PRODUCTION_FOLDER_RESOURCES := $(PRODUCTION_FOLDER)
 
-# EXAMPLE_RUNTIME_PATH embeds a custom runtime location of libraylib.so or other desired libraries
-# into each example binary compiled with RAYLIB_LIBTYPE=SHARED. It defaults to RAYLIB_RELEASE_PATH
-# so that these examples link at runtime with your version of libraylib.so in ../release/libs/linux
-# without formal installation from ../src/Makefile. It aids portability and is useful if you have
-# multiple versions of raylib, have raylib installed to a non-standard location, or want to
-# bundle libraylib.so with your game. Change it to your liking.
-# NOTE: If, at runtime, there is a libraylib.so at both EXAMPLE_RUNTIME_PATH and RAYLIB_INSTALL_PATH,
-# The library at EXAMPLE_RUNTIME_PATH, if present, will take precedence over RAYLIB_INSTALL_PATH,
-# Implemented for LINUX below with CFLAGS += -Wl,-rpath,$(EXAMPLE_RUNTIME_PATH)
-# To see the result, run readelf -d core/core_basic_window; looking at the RPATH or RUNPATH attribute.
-# To see which libraries a built example is linking to, ldd core/core_basic_window;
-# Look for libraylib.so.1 => $(RAYLIB_INSTALL_PATH)/libraylib.so.1 or similar listing.
-EXAMPLE_RUNTIME_PATH   ?= $(RAYLIB_RELEASE_PATH)
+#==============================================================================
+# Library directories (separated by spaces)
+LIB_DIRS?=
+INCLUDE_DIRS?=
+# Link libraries (separated by spaces)
+LINK_LIBRARIES?=
 
-# Define default C compiler: gcc
-# NOTE: define g++ compiler if using C++
-CC = g++
+# Precompiled header filename (no extension)
+# This file will be excluded from Rebuild, but if the bin/(build) directory is removed, it will be as well.
+PRECOMPILED_HEADER?=
 
-ifeq ($(PLATFORM),PLATFORM_DESKTOP)
-    ifeq ($(PLATFORM_OS),OSX)
-        # OSX default compiler
-        CC = clang
-    endif
-    ifeq ($(PLATFORM_OS),BSD)
-        # FreeBSD, OpenBSD, NetBSD, DragonFly default compiler
-        CC = clang
-    endif
+# Build-specific preprocessor macros
+BUILD_MACROS?=
+# Build-specific compiler flags to be appended to the final build step (with prefix)
+BUILD_FLAGS?=
+
+# Build dependencies to copy into the bin/(build) folder - example: openal32.dll
+BUILD_DEPENDENCIES?=
+
+# NAME should always be passed as an argument from tasks.json as the root folder name, but uses a fallback of "game.exe"
+# This is used for the output filename (game.exe)
+NAME?=game.exe
+
+#==============================================================================
+# The source file directory
+SRC_DIR := src$(_SRC_TARGET)
+LIB_DIR := lib
+
+# Project .cpp or .rc files (relative to $(SRC_DIR) directory)
+SOURCE_FILES := $(patsubst $(SRC_DIR)/%,%,$(shell find $(SRC_DIR) -name '*.cpp' -o -name '*.c' -o -name '*.cc' -o -name '*.rc'))
+# Project subdirectories within $(SRC_DIR)/ that contain source files
+PROJECT_DIRS := $(patsubst $(SRC_DIR)/%,%,$(shell find $(SRC_DIR) -mindepth 1 -maxdepth 99 -type d))
+
+# Add prefixes to the above variables
+_INCLUDE_DIRS := $(patsubst %,-I%,$(SRC_DIR)/ $(LIB_DIR)/ $(INCLUDE_DIRS))
+
+_BUILD_MACROS := $(BUILD_MACROS:%=-D%)
+_LINK_LIBRARIES := $(LINK_LIBRARIES:%=-l%)
+
+#==============================================================================
+# Unit Testing
+TEST_DIR :=
+ifeq ($(BUILD),Tests)
+	TEST_DIR := test
+	SOURCE_FILES := $(SOURCE_FILES:Main.cpp=)
+	SOURCE_FILES := $(patsubst $(TEST_DIR)/%,.$(TEST_DIR)/%,$(shell find $(TEST_DIR) -name '*.cpp' -o -name '*.c' -o -name '*.cc' -o -name '*.rc')) $(SOURCE_FILES)
+	_INCLUDE_DIRS := $(patsubst %,-I%,$(TEST_DIR)/) $(_INCLUDE_DIRS)
+	PROJECT_DIRS := .$(TEST_DIR) $(PROJECT_DIRS)
+	BUILD_FLAGS := $(BUILD_FLAGS:-mwindows=)
 endif
-ifeq ($(PLATFORM),PLATFORM_RPI)
-    ifeq ($(USE_RPI_CROSS_COMPILER),TRUE)
-        # Define RPI cross-compiler
-        #CC = armv6j-hardfloat-linux-gnueabi-gcc
-        CC = $(RPI_TOOLCHAIN)/bin/arm-linux-gnueabihf-gcc
-    endif
-endif
-ifeq ($(PLATFORM),PLATFORM_WEB)
-    # HTML5 emscripten compiler
-    # WARNING: To compile to HTML5, code must be redesigned 
-    # to use emscripten.h and emscripten_set_main_loop()
-    CC = emcc
+
+#==============================================================================
+# Linux Specific
+PRODUCTION_LINUX_ICON?=icon
+
+# The full working directory
+ifeq ($(PLATFORM),linux)
+	_LINUX_GREP_CWD := $(shell echo $(CURDIR) | sed 's/\//\\\//g')
 endif
 
-# Define default make program: Mingw32-make
-MAKE = mingw32-make
+#==============================================================================
+# MacOS Specific
+PRODUCTION_MACOS_ICON?=icon
+PRODUCTION_MACOS_BUNDLE_COMPANY?=developer
+PRODUCTION_MACOS_BUNDLE_DISPLAY_NAME?=App
+PRODUCTION_MACOS_BUNDLE_NAME?=App
+PRODUCTION_MACOS_MAKE_DMG?=true
+PRODUCTION_MACOS_BACKGROUND?=dmg-background
 
-ifeq ($(PLATFORM),PLATFORM_DESKTOP)
-    ifeq ($(PLATFORM_OS),LINUX)
-        MAKE = make
-    endif
-    ifeq ($(PLATFORM_OS),OSX)
-        MAKE = make
-    endif
+ifeq ($(PLATFORM),osx)
+	PRODUCTION_MACOS_BUNDLE_COMPANY := $(PRODUCTION_MACOS_BUNDLE_COMPANY)
+	PRODUCTION_MACOS_BUNDLE_DISPLAY_NAME := $(PRODUCTION_MACOS_BUNDLE_DISPLAY_NAME)
+	PRODUCTION_MACOS_BUNDLE_NAME := $(PRODUCTION_MACOS_BUNDLE_NAME)
+	PRODUCTION_FOLDER_MACOS := $(PRODUCTION_FOLDER)
+	PRODUCTION_FOLDER := $(PRODUCTION_FOLDER)/$(PRODUCTION_MACOS_BUNDLE_NAME).app/Contents
+	PRODUCTION_FOLDER_RESOURCES := $(PRODUCTION_FOLDER)/Resources
+	PRODUCTION_DEPENDENCIES := $(PRODUCTION_DEPENDENCIES)
+	PRODUCTION_MACOS_DYLIBS := $(PRODUCTION_MACOS_DYLIBS:%=%.dylib)
+	MACOS_FRAMEWORKS?=CoreFoundation
+	PRODUCTION_MACOS_FRAMEWORKS := $(PRODUCTION_MACOS_FRAMEWORKS:%=%.framework)
+	PRODUCTION_MACOS_BACKGROUND := env/osx/$(PRODUCTION_MACOS_BACKGROUND)
+	MACOS_FRAMEWORK_PATHS := $(MACOS_FRAMEWORK_PATHS:%=-F%)
+	BUILD_FLAGS := $(BUILD_FLAGS) $(MACOS_FRAMEWORK_PATHS) $(MACOS_FRAMEWORKS:%=-framework %)
 endif
 
-# Define compiler flags:
-#  -O0                  defines optimization level (no optimization, better for debugging)
-#  -O1                  defines optimization level
-#  -g                   include debug information on compilation
-#  -s                   strip unnecessary data from build -> do not use in debug builds
-#  -Wall                turns on most, but not all, compiler warnings
-#  -std=c99             defines C language mode (standard C from 1999 revision)
-#  -std=gnu99           defines C language mode (GNU C from 1999 revision)
-#  -Wno-missing-braces  ignore invalid warning (GCC bug 53119)
-#  -D_DEFAULT_SOURCE    use with -std=c99 on Linux and PLATFORM_WEB, required for timespec
-CFLAGS += -Wall -std=c++11 -D_DEFAULT_SOURCE -Wno-missing-braces
+#==============================================================================
+# Directories & Dependencies
+BLD_DIR := bin/$(BUILD)
+ifeq ($(BUILD),Tests)
+	BLD_DIR := bin/Release
+endif
+BLD_DIR := $(BLD_DIR:%/=%)
+_BASENAME := $(basename $(NAME))
+ifeq ($(BUILD_STATIC),true)
+ifeq ($(suffix $(NAME)),$(filter $(suffix $(NAME)),.dll .dylib .so))
+ifneq ($(suffix $(NAME)),)
+	NAME := $(_BASENAME)-s.a
+endif
+endif
+endif
+TARGET := $(BLD_DIR)/$(NAME)
 
-ifeq ($(BUILD_MODE),DEBUG)
-    CFLAGS += -g -O0
+ifneq ($(SRC_TARGET),)
+	LIB_DIRS := $(LIB_DIRS) $(BLD_DIR)
+endif
+_LIB_DIRS := $(LIB_DIR:%=-L%/) $(LIB_DIRS:%=-L%)
+
+_SOURCES_IF_RC := $(if $(filter windows,$(PLATFORM)),$(SOURCE_FILES),$(SOURCE_FILES:%.rc=))
+
+OBJ_DIR := $(BLD_DIR)/obj$(_SRC_TARGET)
+_OBJS := $(_SOURCES_IF_RC:.c=.c.o)
+_OBJS := $(_OBJS:.cpp=.cpp.o)
+_OBJS := $(_OBJS:.cc=.cc.o)
+_OBJS := $(_OBJS:.rc=.res)
+OBJS := $(_OBJS:%=$(OBJ_DIR)/%)
+OBJ_SUBDIRS := $(PROJECT_DIRS:%=$(OBJ_DIR)/%)
+
+DEP_DIR := $(BLD_DIR)/dep$(_SRC_TARGET)
+_DEPS := $(_SOURCES_IF_RC:%=%.d)
+DEPS := $(_DEPS:%=$(DEP_DIR)/%) $(DEP_DIR)/$(PRECOMPILED_HEADER).d
+DEP_SUBDIRS := $(PROJECT_DIRS:%=$(DEP_DIR)/%)
+
+_PCH_HFILE := $(shell find $(SRC_DIR) -name '$(PRECOMPILED_HEADER).hpp' -o -name '$(PRECOMPILED_HEADER).h' -o -name '$(PRECOMPILED_HEADER).hh')
+_PCH_HFILE := $(_PCH_HFILE:$(SRC_DIR)/%=%)
+_PCH_EXT := $(_PCH_HFILE:$(PRECOMPILED_HEADER).%=%)
+_PCH_COMPILER_EXT := $(if $(filter osx,$(PLATFORM)),p,g)ch
+
+_SYMBOLS := $(if $(filter osx,$(PLATFORM)),,$(if $(filter Release,$(BUILD)),-s,))
+
+
+_PCH := $(_PCH_HFILE:%=$(OBJ_DIR)/%)
+ifneq ($(_PCH),)
+	_PCH_GCH := $(_PCH).$(_PCH_COMPILER_EXT)
+endif
+
+ifeq ($(DUMP_ASSEMBLY),true)
+	ASM_DIR := $(BLD_DIR)/asm$(_SRC_TARGET)
+	_ASMS := $(_OBJS:%.res=)
+	_ASMS := $(_ASMS:.o=.o.asm)
+	ASMS := $(_ASMS:%=$(ASM_DIR)/%)
+	ASM_SUBDIRS := $(PROJECT_DIRS:%=$(ASM_DIR)/%)
+endif
+
+_DIRECTORIES := $(sort bin $(BLD_DIR) $(OBJ_DIR) $(OBJ_SUBDIRS) $(DEP_DIR) $(DEP_SUBDIRS) $(ASM_DIR) $(ASM_SUBDIRS))
+
+_CLEAN := $(filter true,$(CLEAN_OUTPUT))
+
+_TARGET_DEPS := $(_PCH_GCH) $(OBJS) $(ASMS) $(TEST_DIR)
+
+# Quiet flag
+_Q := $(if $(_CLEAN),@)
+
+#==============================================================================
+# Compiler & flags
+CC?=g++
+RC?=windres.exe
+CFLAGS?=-O2 -Wall -fdiagnostics-color=always
+
+CFLAGS_DEPS = -MT $@ -MMD -MP -MF $(DEP_DIR)/$*.Td
+CFLAGS_DEPS_T = -MT $@ -MMD -MP -MF $(DEP_DIR)/.$(TEST_DIR)/$*.Td
+PCH_COMPILE = $(CC) $(CFLAGS_DEPS) $(_BUILD_MACROS) $(CFLAGS) $(_INCLUDE_DIRS) -o $@ -c $<
+ifneq ($(_PCH),)
+	_INCLUDE_PCH := -include $(_PCH)
+endif
+
+OBJ_COMPILE = $(CC) $(CFLAGS_DEPS) $(_BUILD_MACROS) $(_INCLUDE_DIRS) $(_INCLUDE_PCH) $(CFLAGS) -o $@ -c $<
+OBJ_COMPILE_T = $(CC) $(CFLAGS_DEPS_T) $(_BUILD_MACROS) $(_INCLUDE_DIRS) $(_INCLUDE_PCH) $(CFLAGS) -o $@ -c $<
+
+RC_COMPILE = -$(RC) -J rc -O coff --preprocessor-arg=-MT --preprocessor-arg=$@ --preprocessor-arg=-MMD --preprocessor-arg=-MP --preprocessor-arg=-MF --preprocessor-arg=$(DEP_DIR)/$*.rc.Td $(_BUILD_MACROS) $(_INCLUDE_DIRS) -i $< -o $@
+ifeq ($(PLATFORM),osx)
+	ASM_COMPILE = otool -tvV $< | c++filt > $@
 else
-    CFLAGS += -s -O1
+	ASM_COMPILE = objdump -d -C -Mintel $< > $@
+endif
+POST_COMPILE = mv -f $(DEP_DIR)/$*.Td $(DEP_DIR)/$*.d && touch $@
+POST_COMPILE_T = mv -f $(DEP_DIR)/.$(TEST_DIR)/$*.Td $(DEP_DIR)/.$(TEST_DIR)/$*.d && touch $@
+POST_COMPILE_RC = mv -f $(DEP_DIR)/$*.rc.Td $(DEP_DIR)/$*.rc.d && touch $@
+
+#==============================================================================
+# Unicode
+UNI_COPY := ➦
+UNI_LINK := ⇛
+ifeq ($(PLATFORM),osx)
+	UNI_COPY := ➦
+	UNI_LINK := ⇛
+endif
+ifeq ($(PLATFORM),windows)
+	UNI_COPY := \xE2\x9E\xA6
+	UNI_LINK := \xE2\x87\x9B
 endif
 
-# Additional flags for compiler (if desired)
-#CFLAGS += -Wextra -Wmissing-prototypes -Wstrict-prototypes
-ifeq ($(PLATFORM),PLATFORM_DESKTOP)
-    ifeq ($(PLATFORM_OS),WINDOWS)
-        # resource file contains windows executable icon and properties
-        # -Wl,--subsystem,windows hides the console window
-        CFLAGS += $(RAYLIB_PATH)/src/raylib.rc.data #-Wl,--subsystem,windows
-    endif
-    ifeq ($(PLATFORM_OS),LINUX)
-        ifeq ($(RAYLIB_LIBTYPE),STATIC)
-            CFLAGS += -D_DEFAULT_SOURCE
-        endif
-        ifeq ($(RAYLIB_LIBTYPE),SHARED)
-            # Explicitly enable runtime link to libraylib.so
-            CFLAGS += -Wl,-rpath,$(EXAMPLE_RUNTIME_PATH)
-        endif
-    endif
-endif
-ifeq ($(PLATFORM),PLATFORM_RPI)
-    CFLAGS += -std=gnu99
-endif
-ifeq ($(PLATFORM),PLATFORM_WEB)
-    # -Os                        # size optimization
-    # -O2                        # optimization level 2, if used, also set --memory-init-file 0
-    # -s USE_GLFW=3              # Use glfw3 library (context/input management)
-    # -s ALLOW_MEMORY_GROWTH=1   # to allow memory resizing -> WARNING: Audio buffers could FAIL!
-    # -s TOTAL_MEMORY=16777216   # to specify heap memory size (default = 16MB)
-    # -s USE_PTHREADS=1          # multithreading support
-    # -s WASM=0                  # disable Web Assembly, emitted by default
-    # -s EMTERPRETIFY=1          # enable emscripten code interpreter (very slow)
-    # -s EMTERPRETIFY_ASYNC=1    # support synchronous loops by emterpreter
-    # -s FORCE_FILESYSTEM=1      # force filesystem to load/save files data
-    # -s ASSERTIONS=1            # enable runtime checks for common memory allocation errors (-O1 and above turn it off)
-    # --profiling                # include information for code profiling
-    # --memory-init-file 0       # to avoid an external memory initialization code file (.mem)
-    # --preload-file resources   # specify a resources folder for data compilation
-    CFLAGS += -Os -s USE_GLFW=3 -s TOTAL_MEMORY=16777216 --preload-file resources
-    ifeq ($(BUILD_MODE), DEBUG)
-        CFLAGS += -s ASSERTIONS=1 --profiling
-    endif
-
-    # Define a custom shell .html and output extension
-    CFLAGS += --shell-file $(RAYLIB_PATH)/src/shell.html
-    EXT = .html
+# Misc
+ORIGIN_FLAG := '-Wl,-R$$ORIGIN'
+ifeq ($(PLATFORM),osx)
+	ORIGIN_FLAG :=
 endif
 
-# Define include paths for required headers
-# NOTE: Several external required libraries (stb and others)
-INCLUDE_PATHS = -I. -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external
-
-# Define additional directories containing required header files
-ifeq ($(PLATFORM),PLATFORM_RPI)
-    # RPI required libraries
-    INCLUDE_PATHS += -I/opt/vc/include
-    INCLUDE_PATHS += -I/opt/vc/include/interface/vmcs_host/linux
-    INCLUDE_PATHS += -I/opt/vc/include/interface/vcos/pthreads
-endif
-ifeq ($(PLATFORM),PLATFORM_DESKTOP)
-    ifeq ($(PLATFORM_OS),BSD)
-        # Consider -L$(RAYLIB_H_INSTALL_PATH)
-        INCLUDE_PATHS += -I/usr/local/include
-    endif
-    ifeq ($(PLATFORM_OS),LINUX)
-        # Reset everything.
-        # Precedence: immediately local, installed version, raysan5 provided libs -I$(RAYLIB_H_INSTALL_PATH) -I$(RAYLIB_PATH)/release/include
-        INCLUDE_PATHS = -I$(RAYLIB_H_INSTALL_PATH) -isystem. -isystem$(RAYLIB_PATH)/src -isystem$(RAYLIB_PATH)/release/include -isystem$(RAYLIB_PATH)/src/external
-    endif
-endif
-
-# Define library paths containing required libs.
-LDFLAGS = -L. -L$(RAYLIB_RELEASE_PATH) -L$(RAYLIB_PATH)/src
-
-ifeq ($(PLATFORM),PLATFORM_DESKTOP)
-    ifeq ($(PLATFORM_OS),BSD)
-        # Consider -L$(RAYLIB_INSTALL_PATH)
-        LDFLAGS += -L. -Lsrc -L/usr/local/lib
-    endif
-    ifeq ($(PLATFORM_OS),LINUX)
-        # Reset everything.
-        # Precedence: immediately local, installed version, raysan5 provided libs
-        LDFLAGS = -L. -L$(RAYLIB_INSTALL_PATH) -L$(RAYLIB_RELEASE_PATH)
-    endif
-endif
-
-ifeq ($(PLATFORM),PLATFORM_RPI)
-    LDFLAGS += -L/opt/vc/lib
-endif
-
-# Define any libraries required on linking
-# if you want to link libraries (libname.so or libname.a), use the -lname
-ifeq ($(PLATFORM),PLATFORM_DESKTOP)
-    ifeq ($(PLATFORM_OS),WINDOWS)
-        # Libraries for Windows desktop compilation
-        # NOTE: WinMM library required to set high-res timer resolution
-        LDLIBS = -lraylib -lopengl32 -lgdi32 -lwinmm
-        # Required for physac examples
-        #LDLIBS += -static -lpthread
-    endif
-    ifeq ($(PLATFORM_OS),LINUX)
-        # Libraries for Debian GNU/Linux desktop compiling
-        # NOTE: Required packages: libegl1-mesa-dev
-        LDLIBS = -lraylib -lGL -lm -lpthread -ldl -lrt
-        
-        # On X11 requires also below libraries
-        LDLIBS += -lX11
-        # NOTE: It seems additional libraries are not required any more, latest GLFW just dlopen them
-        #LDLIBS += -lXrandr -lXinerama -lXi -lXxf86vm -lXcursor
-        
-        # On Wayland windowing system, additional libraries requires
-        ifeq ($(USE_WAYLAND_DISPLAY),TRUE)
-            LDLIBS += -lwayland-client -lwayland-cursor -lwayland-egl -lxkbcommon
-        endif
-        # Explicit link to libc
-        ifeq ($(RAYLIB_LIBTYPE),SHARED)
-            LDLIBS += -lc
-        endif
-    endif
-    ifeq ($(PLATFORM_OS),OSX)
-        # Libraries for OSX 10.9 desktop compiling
-        # NOTE: Required packages: libopenal-dev libegl1-mesa-dev
-        LDLIBS = -lraylib -framework OpenGL -framework OpenAL -framework Cocoa
-    endif
-    ifeq ($(PLATFORM_OS),BSD)
-        # Libraries for FreeBSD, OpenBSD, NetBSD, DragonFly desktop compiling
-        # NOTE: Required packages: mesa-libs
-        LDLIBS = -lraylib -lGL -lpthread -lm
-
-        # On XWindow requires also below libraries
-        LDLIBS += -lX11 -lXrandr -lXinerama -lXi -lXxf86vm -lXcursor
-    endif
-    ifeq ($(USE_EXTERNAL_GLFW),TRUE)
-        # NOTE: It could require additional packages installed: libglfw3-dev
-        LDLIBS += -lglfw
-    endif
-endif
-ifeq ($(PLATFORM),PLATFORM_RPI)
-    # Libraries for Raspberry Pi compiling
-    # NOTE: Required packages: libasound2-dev (ALSA)
-    LDLIBS = -lraylib -lbrcmGLESv2 -lbrcmEGL -lpthread -lrt -lm -lbcm_host -ldl
-endif
-ifeq ($(PLATFORM),PLATFORM_WEB)
-    # Libraries for web (HTML5) compiling
-    LDLIBS = $(RAYLIB_RELEASE_PATH)/libraylib.bc
-endif
-
-# Define a recursive wildcard function
-rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
-
-# Define all source files required
-SRC_DIR = src
-OBJ_DIR = obj
-
-# Define all object files from source files
-SRC = $(call rwildcard, *.cpp, *.h)
-#OBJS = $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
-OBJS ?= main.cpp
-
-# For Android platform we call a custom Makefile.Android
-ifeq ($(PLATFORM),PLATFORM_ANDROID)
-    MAKEFILE_PARAMS = -f Makefile.Android 
-    export PROJECT_NAME
-    export SRC_DIR
-else
-    MAKEFILE_PARAMS = $(PROJECT_NAME)
-endif
-
-# Default target entry
-# NOTE: We call this Makefile target or Makefile.Android target
+#==============================================================================
+# Build Scripts
 all:
-	$(MAKE) $(MAKEFILE_PARAMS)
+	@$(MAKE) makepch
+	@$(MAKE) -j$(MAX_PARALLEL_JOBS) makebuild
+.DELETE_ON_ERROR: all
 
-# Project target defined by PROJECT_NAME
-$(PROJECT_NAME): $(OBJS)
-	$(CC) -o $(PROJECT_NAME)$(EXT) $(OBJS) $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) -D$(PLATFORM)
+rebuild: clean all
+.PHONY: rebuild
 
-# Compile source files
-# NOTE: This pattern will compile every module defined on $(OBJS)
-#%.o: %.c
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
-	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) -D$(PLATFORM)
+buildprod: all makeproduction
+.PHONY: buildprod
 
-# Clean everything
+#==============================================================================
+# Functions
+color_blue := \033[0;34m
+color_purple := \033[0;35m
+
+define compile_with
+	$(if $(_CLEAN),@printf '   $(color_blue)$($(2):$(OBJ_DIR)/%=%)\n',@printf '$(color_blue)')
+	$(_Q)$(3) && $(4)
+endef
+
+define linking_with
+	$(if $(_CLEAN),@printf '\n$(color_blue)$(UNI_LINK)  Linking: $(1)')
+endef
+
+define build_deps
+	$(foreach dep,$(BUILD_DEPENDENCIES),$(call copy_to,$(dep),$(BLD_DIR)))
+endef
+
+MKDIR := $(_Q)mkdir -p
+
+makepch: $(_PCH_GCH)
+	@printf ''
+.PHONY: makepch
+
+makebuild: $(TARGET)
+ifeq ($(SRC_TARGET),)
+	@printf '   $(color_blue)Target is up to date.\n'
+else
+	@printf '   $(color_blue)$(NAME): Target is up to date.\n'
+endif
+.PHONY: makebuild
+
+#==============================================================================
+# Build Recipes
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%
+$(OBJ_DIR)/%.o: $(SRC_DIR)/% $(_PCH_GCH) $(DEP_DIR)/%.d | $(_DIRECTORIES)
+	$(call compile_with,@,<,$(OBJ_COMPILE),$(POST_COMPILE))
+
+$(OBJ_DIR)/.$(TEST_DIR)/%.o: $(TEST_DIR)/%
+$(OBJ_DIR)/.$(TEST_DIR)/%.o: $(TEST_DIR)/% $(_PCH_GCH) $(DEP_DIR)/.$(TEST_DIR)/%.d | $(_DIRECTORIES)
+	$(call compile_with,@,<,$(OBJ_COMPILE_T),$(POST_COMPILE_T))
+
+$(OBJ_DIR)/%.$(_PCH_EXT).$(_PCH_COMPILER_EXT) : $(SRC_DIR)/%.$(_PCH_EXT)
+$(OBJ_DIR)/%.$(_PCH_EXT).$(_PCH_COMPILER_EXT) : $(SRC_DIR)/%.$(_PCH_EXT) $(DEP_DIR)/%.d | $(_DIRECTORIES)
+	$(call compile_with,@,<,$(PCH_COMPILE),$(POST_COMPILE))
+
+$(OBJ_DIR)/%.res: $(SRC_DIR)/%.rc
+$(OBJ_DIR)/%.res: $(SRC_DIR)/%.rc $(DEP_DIR)/%.rc.d | $(_DIRECTORIES)
+	$(call compile_with,@,<,$(RC_COMPILE),$(POST_COMPILE_RC))
+
+$(ASM_DIR)/%.o.asm: $(OBJ_DIR)/%.o
+	$(if $(_CLEAN),@printf '   $(color_purple)$@\n')
+	$(_Q)$(ASM_COMPILE)
+
+$(BLD_DIR)/lib%-s.a: $(_TARGET_DEPS)
+	$(call linking_with,$@)
+	-$(_Q)rm -rf $@
+	$(_Q)ar -c -r -s $@ $(OBJS)
+	@printf '\n'
+
+$(BLD_DIR)/$(_BASENAME).dll: $(_TARGET_DEPS)
+	$(call linking_with,$@)
+	-$(_Q)rm -rf $(BLD_DIR)/$(_BASENAME).def $(BLD_DIR)/$(_BASENAME).a
+	$(_Q)$(CC) -shared -Wl,--output-def="$(BLD_DIR)/$(_BASENAME).def" -Wl,--out-implib="$(BLD_DIR)/$(_BASENAME).a" -Wl,--dll $(_LIB_DIRS) $(OBJS) -o $@ $(_SYMBOLS) $(_LINK_LIBRARIES) $(BUILD_FLAGS)
+	@printf '\n'
+
+$(BLD_DIR)/$(_BASENAME).so: $(_TARGET_DEPS)
+	$(call linking_with,$@)
+	$(_Q)$(CC) -shared $(_LIB_DIRS) $(OBJS) -o $@ $(_SYMBOLS) $(_LINK_LIBRARIES) $(BUILD_FLAGS)
+	@printf '\n'
+
+$(BLD_DIR)/$(_BASENAME).dylib: $(_TARGET_DEPS)
+	$(call linking_with,$(BLD_DIR)/$(_BASENAME).dylib)
+	$(_Q)$(CC) -dynamiclib -undefined suppress -flat_namespace $(_LIB_DIRS) $(OBJS) -o $@ $(_SYMBOLS) $(_LINK_LIBRARIES) $(BUILD_FLAGS)
+	@printf '\n'
+
+$(BLD_DIR)/$(_BASENAME).exe: $(_TARGET_DEPS)
+	$(call linking_with,$@)
+	$(_Q)$(CC) $(_LIB_DIRS) $(_SYMBOLS) -o $@ $(ORIGIN_FLAG) $(OBJS) $(_LINK_LIBRARIES) $(BUILD_FLAGS)
+	@printf '\n'
+	$(call build_deps)
+
+$(BLD_DIR)/$(_BASENAME): $(_TARGET_DEPS)
+	$(call linking_with,$@)
+	$(_Q)$(CC) $(_LIB_DIRS) $(_SYMBOLS) -o $@ $(ORIGIN_FLAG) $(OBJS) $(_LINK_LIBRARIES) $(BUILD_FLAGS)
+	@printf '\n'
+	$(call build_deps)
+
+$(_DIRECTORIES):
+	$(if $(_CLEAN),,@printf '\$(color_blue)')
+	$(MKDIR) $@
+
 clean:
-ifeq ($(PLATFORM),PLATFORM_DESKTOP)
-    ifeq ($(PLATFORM_OS),WINDOWS)
-		del *.o *.exe /s
-    endif
-    ifeq ($(PLATFORM_OS),LINUX)
-	find -type f -executable | xargs file -i | grep -E 'x-object|x-archive|x-sharedlib|x-executable' | rev | cut -d ':' -f 2- | rev | xargs rm -fv
-    endif
-    ifeq ($(PLATFORM_OS),OSX)
-		find . -type f -perm +ugo+x -delete
-		rm -f *.o
-    endif
-endif
-ifeq ($(PLATFORM),PLATFORM_RPI)
-	find . -type f -executable -delete
-	rm -fv *.o
-endif
-ifeq ($(PLATFORM),PLATFORM_WEB)
-	del *.o *.html *.js
-endif
-	@echo Cleaning done
+	$(if $(_CLEAN),@printf '   $(color_blue)Cleaning old build files & folders...\n\n',@printf '$(color_blue)')
+	$(_Q)$(RM) $(TARGET) $(DEPS) $(OBJS)
+.PHONY: clean
 
+#==============================================================================
+# Production recipes
+
+rmprod:
+	@printf '\n'
+	-$(_Q)rm -rf "$(if $(filter osx,$(PLATFORM)),$(PRODUCTION_FOLDER_MACOS),$(PRODUCTION_FOLDER))"
+ifeq ($(PLATFORM),linux)
+	-$(_Q)rm -rf ~/.local/share/applications/$(NAME).desktop
+endif
+.PHONY: rmprod
+
+mkdirprod:
+	$(MKDIR) "$(PRODUCTION_FOLDER)"
+.PHONY: mkdirprod
+
+define do_copy_to_clean
+	@printf  '$(color_blue)$(UNI_COPY)  Copying \"$(1)\" to \"$(CURDIR)/$(2)\"\n'
+	$(shell cp -r "$(1)" "$(2)")
+endef
+
+define do_copy_to
+	@printf  '$(color_blue)cp -r $(1) $(2)\n'
+	$(shell cp -r "$(1)" "$(2)")
+endef
+
+define copy_to
+	$(if $(wildcard $(2)/$(notdir $(1))),,$(if $(_CLEAN),$(call do_copy_to_clean,$(1),$(2)),$(call do_copy_to,$(1),$(2))))
+endef
+
+releasetoprod: $(TARGET)
+ifeq ($(PLATFORM),osx)
+	@printf '   $(color_blue)Creating the MacOS application bundle...\n'
+	@printf '\n'
+	$(MKDIR) "$(PRODUCTION_FOLDER)/Resources" "$(PRODUCTION_FOLDER)/Frameworks" "$(PRODUCTION_FOLDER)/MacOS"
+	$(_Q)sips -s format icns "env/osx/$(PRODUCTION_MACOS_ICON).png" --out "$(PRODUCTION_FOLDER)/Resources/$(PRODUCTION_MACOS_ICON).icns" > /dev/null
+	$(_Q)plutil -convert binary1 env/osx/Info.plist.json -o "$(PRODUCTION_FOLDER)/Info.plist"
+	$(_Q)plutil -replace CFBundleExecutable -string "$(NAME)" "$(PRODUCTION_FOLDER)/Info.plist"
+	$(_Q)plutil -replace CFBundleName -string "$(PRODUCTION_MACOS_BUNDLE_NAME)" "$(PRODUCTION_FOLDER)/Info.plist"
+	$(_Q)plutil -replace CFBundleIconFile -string "$(PRODUCTION_MACOS_ICON)" "$(PRODUCTION_FOLDER)/Info.plist"
+	$(_Q)plutil -replace CFBundleDisplayName -string "$(PRODUCTION_MACOS_BUNDLE_DISPLAY_NAME)" "$(PRODUCTION_FOLDER)/Info.plist"
+	$(_Q)plutil -replace CFBundleIdentifier -string "com.$(PRODUCTION_MACOS_BUNDLE_DEVELOPER).$(PRODUCTION_MACOS_BUNDLE_NAME)" "$(PRODUCTION_FOLDER)/Info.plist"
+	$(_Q)cp $(TARGET) "$(PRODUCTION_FOLDER)/MacOS"
+	$(_Q)chmod +x "$(PRODUCTION_FOLDER)/MacOS/$(NAME)"
+else ifeq ($(PLATFORM),linux)
+	$(_Q)cp $(TARGET) "$(PRODUCTION_FOLDER)"
+	$(_Q)cp "env/linux/$(PRODUCTION_LINUX_ICON).png" "$(PRODUCTION_FOLDER)/$(PRODUCTION_LINUX_ICON).png"
+	$(_Q)cp "env/linux/exec.desktop "$(PRODUCTION_FOLDER)/$(NAME).desktop"
+	$(_Q)sed -i 's/^Exec=.*/Exec=$(_LINUX_GREP_CWD)\/$(PRODUCTION_FOLDER)\/$(NAME)/' "$(PRODUCTION_FOLDER)/$(NAME).desktop"
+	$(_Q)sed -i 's/^Path=.*/Path=$(_LINUX_GREP_CWD)\/$(PRODUCTION_FOLDER)/' "$(PRODUCTION_FOLDER)/$(NAME).desktop"
+	$(_Q)sed -i 's/^Name=.*/Name=$(PRODUCTION_LINUX_APP_NAME)/' "$(PRODUCTION_FOLDER)/$(NAME).desktop"
+	$(_Q)sed -i 's/^Comment=.*/Comment=$(PRODUCTION_LINUX_APP_COMMENT)/' "$(PRODUCTION_FOLDER)/$(NAME).desktop"
+	$(_Q)sed -i 's/^Icon=.*/Icon=$(_LINUX_GREP_CWD)\/$(PRODUCTION_FOLDER)\/$(PRODUCTION_LINUX_ICON).png/' "$(PRODUCTION_FOLDER)/$(NAME).desktop"
+	$(_Q)chmod +x "$(PRODUCTION_FOLDER)/$(NAME)"
+	$(_Q)chmod +x "$(PRODUCTION_FOLDER)/$(NAME).desktop"
+	$(_Q)cp "$(PRODUCTION_FOLDER)/$(NAME).desktop" ~/.local/share/applications
+else
+	$(_Q)cp $(TARGET) "$(PRODUCTION_FOLDER)"
+	$(if $(_CLEAN),,@printf '\n')
+endif
+.PHONY: releasetoprod
+
+makeproduction: rmprod mkdirprod releasetoprod
+ifneq ($(PRODUCTION_DEPENDENCIES),)
+	@printf '   $(color_blue)Adding dynamic libraries & project dependencies...\n'
+	$(foreach dep,$(PRODUCTION_DEPENDENCIES),$(call copy_to,$(dep),$(PRODUCTION_FOLDER_RESOURCES)))
+	$(foreach excl,$(PRODUCTION_EXCLUDE),$(shell find "$(PRODUCTION_FOLDER_RESOURCES)" -name '$(excl)' -delete))
+endif
+ifeq ($(PLATFORM),osx)
+	$(foreach dylib,$(PRODUCTION_MACOS_DYLIBS),$(call copy_to,$(dylib),$(PRODUCTION_FOLDER)/MacOS))
+	$(_Q)install_name_tool -add_rpath @executable_path/../Frameworks "$(PRODUCTION_FOLDER)/MacOS/$(NAME)"
+	$(_Q)install_name_tool -add_rpath @loader_path/.. "$(PRODUCTION_FOLDER)/MacOS/$(NAME)"
+	$(foreach dylib,$(PRODUCTION_MACOS_DYLIBS),$(shell install_name_tool -change @rpath/$(notdir $(dylib)) @rpath/MacOS/$(notdir $(dylib)) "$(PRODUCTION_FOLDER)/MacOS/$(NAME)"))
+	$(foreach dylib,$(PRODUCTION_MACOS_DYLIBS),$(shell install_name_tool -change $(notdir $(dylib)) @rpath/MacOS/$(notdir $(dylib)) "$(PRODUCTION_FOLDER)/MacOS/$(NAME)"))
+	$(foreach dylib,$(PRODUCTION_MACOS_DYLIBS),$(shell install_name_tool -change $(dylib) @rpath/MacOS/$(notdir $(dylib)) "$(PRODUCTION_FOLDER)/MacOS/$(NAME)"))
+	$(foreach framework,$(PRODUCTION_MACOS_FRAMEWORKS),$(call copy_to,$(framework),$(PRODUCTION_FOLDER)/Frameworks))
+ifeq ($(PRODUCTION_MACOS_MAKE_DMG),true)
+	$(shell hdiutil detach "/Volumes/$(PRODUCTION_MACOS_BUNDLE_NAME)/" &> /dev/null)
+	@printf '   $(color_blue)Creating the dmg image...\n'
+	@printf '\n'
+	$(_Q)hdiutil create -megabytes 54 -fs HFS+ -volname "$(PRODUCTION_MACOS_BUNDLE_NAME)" "$(PRODUCTION_FOLDER_MACOS)/.tmp.dmg" > /dev/null
+	$(_Q)hdiutil attach "$(PRODUCTION_FOLDER_MACOS)/.tmp.dmg" > /dev/null
+	$(_Q)cp -r "$(PRODUCTION_FOLDER_MACOS)/$(PRODUCTION_MACOS_BUNDLE_NAME).app" "/Volumes/$(PRODUCTION_MACOS_BUNDLE_NAME)/"
+	-$(_Q)rm -rf "/Volumes/$(PRODUCTION_MACOS_BUNDLE_NAME)/.fseventsd"
+	$(MKDIR) "/Volumes/$(PRODUCTION_MACOS_BUNDLE_NAME)/.background"
+	$(_Q)tiffutil -cathidpicheck "$(PRODUCTION_MACOS_BACKGROUND).png" "$(PRODUCTION_MACOS_BACKGROUND)@2x.png" -out "/Volumes/$(PRODUCTION_MACOS_BUNDLE_NAME)/.background/background.tiff"
+	$(_Q)ln -s /Applications "/Volumes/$(PRODUCTION_MACOS_BUNDLE_NAME)/Applications"
+	$(_Q)appName="$(PRODUCTION_MACOS_BUNDLE_NAME)" osascript env/osx/dmg.applescript
+	$(_Q)hdiutil detach "/Volumes/$(PRODUCTION_MACOS_BUNDLE_NAME)/" > /dev/null
+	$(_Q)hdiutil convert "$(PRODUCTION_FOLDER_MACOS)/.tmp.dmg" -format UDZO -o "$(PRODUCTION_FOLDER_MACOS)/$(PRODUCTION_MACOS_BUNDLE_NAME).dmg" > /dev/null
+	$(_Q)rm -f "$(PRODUCTION_FOLDER_MACOS)/.tmp.dmg"
+	@printf '\n'
+	@printf '   $(color_blue)Created $(PRODUCTION_FOLDER_MACOS)/$(PRODUCTION_MACOS_BUNDLE_NAME).dmg\n'
+endif
+endif
+.PHONY: makeproduction
+
+#==============================================================================
+# Dependency recipes
+$(DEP_DIR)/%.d: ;
+.PRECIOUS: $(DEP_DIR)/%.d
+
+include $(wildcard $(DEPS))
