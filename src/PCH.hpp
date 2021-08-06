@@ -23,6 +23,7 @@
 
 // Typical stdafx.h
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <deque>
 #include <fstream>
