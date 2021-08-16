@@ -1,5 +1,64 @@
+
+
 namespace ss
 {
+class CellularMatrix;
+
+//== Elements =====
+
+class Element
+{
+public:
+	void step()
+	{
+		std::cout << "Base " << a << std::endl;
+	}
+	int a = 5;
+};
+
+//---
+
+class EmptyCell : public Element
+{
+public:
+	void step()
+	{
+		std::cout << "Derived " << a << std::endl;
+	}
+	int a = 3;
+};
+
+//-- Solids -----
+
+class Solid : public Element
+{
+};
+
+class MovableSolid : public Solid
+{
+};
+
+class ImmovableSolid : public Solid
+{
+};
+
+//---
+
+//-- Fluids -----
+
+class Liquid : public Element
+{
+};
+
+//---
+
+//-- Gases -----
+
+class Gas : public Element
+{
+};
+
+//---
 
 //== Cellular Matrix =====
 
@@ -12,14 +71,17 @@ public:
 		height = _height;
 
 		initializeMatrix();
+
+		// Element* el = new EmptyCell;
+		// el->step();
 	}
 
 	unsigned int width;
 	unsigned int height;
 
-	std::vector<std::vector<ssel::Element>> matrix;
+	std::vector<std::vector<Element*>> matrix;
 
-	//--
+	//-- methods
 
 	void update()
 	{
@@ -27,22 +89,10 @@ public:
 		{
 			for (unsigned int y = 0; y < height; y++)
 			{
-				ssel::Element* element = &matrix[x][y];
+				Element* element = matrix[x][y];
 				element->step();
 			}
 		}
-	}
-
-	ssel::Element getCell(unsigned int x, unsigned int y)
-	{
-		return matrix[x][y];
-	}
-
-	void switchCell(unsigned int currentCellX, unsigned int currentCellY, unsigned int switchingCellX, unsigned int switchingCellY)
-	{
-		ssel::Element switchingCell = matrix[switchingCellX][switchingCellY];
-		matrix[switchingCellX][switchingCellY] = matrix[currentCellX][currentCellY];
-		matrix[currentCellX][currentCellY] = switchingCell;
 	}
 
 private:
@@ -52,12 +102,11 @@ private:
 	{
 		for (unsigned int i = 0; i < width; i++)
 		{
-			std::vector<ssel::Element> a;
+			std::vector<Element*> a;
 			matrix.push_back(a);
 			for (unsigned int j = 0; j < height; j++)
 			{
-				ssel::Element b;
-				matrix[i].push_back(b);
+				matrix[i].push_back(new EmptyCell);
 			}
 		}
 	}

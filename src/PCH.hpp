@@ -23,7 +23,6 @@
 
 // Typical stdafx.h
 #include <algorithm>
-#include <any>
 #include <array>
 #include <cstdio>
 #include <deque>
@@ -34,7 +33,6 @@
 #include <memory>
 #include <set>
 #include <string>
-#include <variant>
 #include <vector>
 
 // Additional C/C++ libs
@@ -68,10 +66,6 @@
 // Utils
 #include "Utility/FileSystem.hpp"
 #include "Utility/Types.hpp"
-
-// Own
-#include "code/sandsim.cpp"
-#include "code/sandsimelements.cpp"
 
 // Macros
 #define UNUSED(x) (void)(x)
