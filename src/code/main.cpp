@@ -1,5 +1,4 @@
 #include "../Platform/Platform.hpp"
-#include "sandsim.cpp"
 
 void drawGridToTexture(sf::Texture*);
 
@@ -14,7 +13,7 @@ int main()
 	float screenScalingFactor = platform.getScreenScalingFactor(window.getSystemHandle());
 	// Use the screenScalingFactor
 	window.create(sf::VideoMode(300 * screenScalingFactor, 200 * screenScalingFactor), "Falling Sand Simulation");
-	window.setFramerateLimit(60);
+	//window.setFramerateLimit(60);
 
 	sf::Event event;
 
@@ -25,8 +24,8 @@ int main()
 
 	//-----------------------
 
-	unsigned int width = 300;
-	unsigned int height = 200;
+	unsigned int width = 900;
+	unsigned int height = 600;
 
 	ss::CellularMatrix cellularMatrix { width, height };
 
@@ -51,6 +50,7 @@ int main()
 
 		//-- process --
 
+		cellularMatrix.update();
 		drawGridToTexture(&gridTexture);
 
 		//-------------
