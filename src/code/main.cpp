@@ -1,7 +1,8 @@
 #include "../Platform/Platform.hpp"
-#include "sandsim.cpp"
+#include "sandsim.hpp"
 
-void drawGridToTexture(sf::Texture*);
+void drawToGrid(ss::CellularMatrixEditor*, sf::RenderWindow*);
+void drawGridToTexture(ss::CellularMatrix*, sf::Texture*);
 
 int main()
 {
@@ -13,22 +14,28 @@ int main()
 	// in Windows at least, this must be called before creating the window
 	float screenScalingFactor = platform.getScreenScalingFactor(window.getSystemHandle());
 	// Use the screenScalingFactor
-	window.create(sf::VideoMode(300 * screenScalingFactor, 200 * screenScalingFactor), "Falling Sand Simulation");
-	window.setFramerateLimit(60);
+	window.create(sf::VideoMode(900 * screenScalingFactor, 600 * screenScalingFactor), "Falling Sand Simulation");
+	// window.setFramerateLimit(60);
 
 	sf::Event event;
 
-	float fps;
+	float fps = 0;
 	sf::Clock clock;
 	sf::Time previousTime = clock.getElapsedTime();
 	sf::Time currentTime;
 
 	//-----------------------
 
-	unsigned int width = 300;
-	unsigned int height = 200;
+	sf::Font mainFont;
+	mainFont.loadFromFile("C:/Users/kappl/Documents/github/sandsim-cpp/content/Roboto-Regular.ttf");
 
-	ss::CellularMatrix cellularMatrix { width, height };
+	//-----------------------
+
+	unsigned int width = 900;
+	unsigned int height = 600;
+
+	ss::CellularMatrix cellularMatrix(width, height);
+	ss::CellularMatrixEditor matrixEditor(&cellularMatrix);
 
 	//-- setup matrix sprite
 	sf::Image image;
@@ -51,7 +58,11 @@ int main()
 
 		//-- process --
 
-		drawGridToTexture(&gridTexture);
+		drawToGrid(&matrixEditor, &window);
+		cellularMatrix.update();
+		drawGridToTexture(&cellularMatrix, &gridTexture);
+
+		sf::Text fpsCounter(std::to_string((int)fps), mainFont, 20);
 
 		//-------------
 
@@ -59,31 +70,71 @@ int main()
 		window.clear(sf::Color(255, 255, 255, 255));
 
 		window.draw(gridSprite);
+		window.draw(fpsCounter);
 
 		window.display();
 		//-------------
 
 		currentTime = clock.getElapsedTime();
-		fps = 1.0f / (currentTime.asSeconds() - previousTime.asSeconds()); // the asSeconds returns a float
-		std::cout << "fps: " << floor(fps) << std::endl;				   // flooring it will make the frame rate a rounded number
+		fps = 1.0f / (currentTime.asSeconds() - previousTime.asSeconds());
 		previousTime = currentTime;
 	}
 
 	return 0;
 }
 
-void drawGridToTexture(sf::Texture* texture)
+void drawGridToTexture(ss::CellularMatrix* grid, sf::Texture* texture)
 {
-	sf::Image image;
-	image.create(300, 200, sf::Color::White);
+	unsigned int width = grid->width;
+	unsigned int height = grid->height;
 
-	for (unsigned int x = 0; x < image.getSize().x; x++)
+	sf::Image image;
+	image.create(width, height, sf::Color::White);
+
+	for (unsigned int x = 0; x < width; x++)
 	{
-		for (unsigned int y = 0; y < image.getSize().y; y++)
+		for (unsigned int y = 0; y < height; y++)
 		{
-			image.setPixel(x, y, sf::Color::Magenta);
+			sf::Color color(
+				grid->matrix[x][y]->getColor().r,
+				grid->matrix[x][y]->getColor().g,
+				grid->matrix[x][y]->getColor().b,
+				grid->matrix[x][y]->getColor().a);
+
+			image.setPixel(x, y, color);
 		}
 	}
 
 	texture->loadFromImage(image);
+}
+
+void drawToGrid(ss::CellularMatrixEditor* editor, sf::RenderWindow* window)
+{
+	if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
+	{
+		sf::Vector2i pos = sf::Mouse::getPosition(*static_cast<sf::Window*>(window));
+		editor->draw(pos.x, pos.y);
+	}
+	if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right))
+	{
+		sf::Vector2i pos = sf::Mouse::getPosition(*static_cast<sf::Window*>(window));
+		editor->erase(pos.x, pos.y);
+	}
+
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))
+	{
+		editor->increaseBrushSize();
+	}
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))
+	{
+		editor->decreaseBrushSize();
+	}
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))
+	{
+		editor->increaseSelectedIndex();
+	}
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))
+	{
+		editor->decreaseSelectedIndex();
+	}
 }
