@@ -1,5 +1,6 @@
 #include "../Platform/Platform.hpp"
 #include "sandsim.hpp"
+#include "sandsimelements.hpp"
 
 void drawToGrid(ss::CellularMatrixEditor*, sf::RenderWindow*);
 void drawGridToTexture(ss::CellularMatrix*, sf::Texture*);
@@ -10,11 +11,14 @@ int main()
 
 	std::cout << "Hello World!" << std::endl;
 
+	int windowWidth = 900;
+	int windowHeight = 600;
+
 	sf::RenderWindow window;
 	// in Windows at least, this must be called before creating the window
 	float screenScalingFactor = platform.getScreenScalingFactor(window.getSystemHandle());
 	// Use the screenScalingFactor
-	window.create(sf::VideoMode(900 * screenScalingFactor, 600 * screenScalingFactor), "Falling Sand Simulation");
+	window.create(sf::VideoMode(windowWidth * screenScalingFactor, windowHeight * screenScalingFactor), "Falling Sand Simulation");
 	// window.setFramerateLimit(60);
 
 	sf::Event event;

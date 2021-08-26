@@ -1,7 +1,12 @@
 #ifndef SANDSIMELEMENTS_HPP
 #define SANDSIMELEMENTS_HPP
 
-#include "sandsim.hpp"
+//== forward declarations ===
+namespace ss
+{
+class CellularMatrix;
+}
+//=====
 
 namespace ssel
 {
@@ -27,10 +32,9 @@ protected:
 	Color color { 5, 5, 5, 255 };
 
 public:
+	virtual std::string getType() = 0;
 	virtual Color getColor() = 0;
-
-	// virtual void step(unsigned int x, unsigned int y, ss::CellularMatrix* matrix)
-	// {}
+	virtual void step(unsigned int x, unsigned int y, ss::CellularMatrix* matrix) = 0;
 
 protected:
 };
@@ -43,13 +47,9 @@ protected:
 	Color color { 0, 0, 0, 255 };
 
 public:
-	Color getColor() override
-	{
-		return color;
-	}
-	// void step(unsigned int x, unsigned int y, ss::CellularMatrix* matrix) override
-	// {
-	// }
+	std::string getType() override;
+	Color getColor() override;
+	void step(unsigned int x, unsigned int y, ss::CellularMatrix* matrix) override;
 };
 
 //-----
@@ -67,9 +67,7 @@ class MovableSolid : public Solid
 class ImmovableSolid : public Solid
 {
 public:
-	// void step(unsigned int x, unsigned int y, ss::CellularMatrix* matrix) override
-	// {
-	// }
+	void step(unsigned int x, unsigned int y, ss::CellularMatrix* matrix) override;
 };
 
 //---
@@ -80,20 +78,10 @@ protected:
 	Color color { 255, 215, 85, 255 };
 
 public:
-	// void step(unsigned int x, unsigned int y, ss::CellularMatrix* matrix) override
-	// {
-	// 	if (typeid(*matrix->get(x, y + 1)) == typeid(ssel::EmptyCell))
-	// 		matrix->switchCells(x, y, x, y + 1);
-	// 	else if (typeid(*matrix->get(x + 1, y + 1)) == typeid(ssel::EmptyCell))
-	// 		matrix->switchCells(x, y, x + 1, y + 1);
-	// 	else if (typeid(*matrix->get(x - 1, y + 1)) == typeid(ssel::EmptyCell))
-	// 		matrix->switchCells(x, y, x - 1, y + 1);
-	// }
+	void step(unsigned int x, unsigned int y, ss::CellularMatrix* matrix) override;
 
-	Color getColor() override
-	{
-		return color;
-	}
+	std::string getType() override;
+	Color getColor() override;
 };
 
 //---
@@ -104,10 +92,8 @@ protected:
 	Color color { 120, 120, 120, 255 };
 
 public:
-	Color getColor() override
-	{
-		return color;
-	}
+	std::string getType() override;
+	Color getColor() override;
 };
 
 //-----
@@ -128,28 +114,14 @@ class Gas : public Element
 
 //-----
 
-enum Elements
+enum Elements : int
 {
 	eEmptyCell,
 	eStone,
 	eSand
 };
 
-Element* newElement(unsigned int);
-Element* newElement(unsigned int index)
-{
-	switch (index)
-	{
-		case Elements::eEmptyCell:
-			return new EmptyCell;
-		case Elements::eStone:
-			return new Stone;
-		case Elements::eSand:
-			return new Sand;
-		default:
-			return new EmptyCell;
-	}
-}
+Element* newElement(unsigned int index);
 
 }
 
