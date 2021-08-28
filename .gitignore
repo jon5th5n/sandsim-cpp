@@ -1,0 +1,9 @@
+
+.vscode/
+bin/
+Boilerplate.app/
+env/
+lib/
+.clang-format
+build.sh
+Makefile

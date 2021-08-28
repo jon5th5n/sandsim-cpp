@@ -2,8 +2,8 @@
 #include "sandsim.hpp"
 #include "sandsimelements.hpp"
 
-void drawToGrid(ss::CellularMatrixEditor*, sf::RenderWindow*);
-void drawGridToTexture(ss::CellularMatrix*, sf::Texture*);
+void drawToGrid(ss::CellularMatrixEditor*, sf::RenderWindow*, unsigned int);
+void drawGridToTexture(ss::CellularMatrix*, sf::Texture*, unsigned int);
 
 int main()
 {
@@ -35,15 +35,16 @@ int main()
 
 	//-----------------------
 
-	unsigned int width = 900;
-	unsigned int height = 600;
+	unsigned int scalingFactor = 3;
+	unsigned int width = windowWidth / scalingFactor;
+	unsigned int height = windowHeight / scalingFactor;
 
 	ss::CellularMatrix cellularMatrix(width, height);
 	ss::CellularMatrixEditor matrixEditor(&cellularMatrix);
 
 	//-- setup matrix sprite
 	sf::Image image;
-	image.create(width, height, sf::Color::Black);
+	image.create(windowWidth, windowHeight, sf::Color::Magenta);
 	sf::Texture gridTexture;
 	gridTexture.loadFromImage(image);
 	sf::Sprite gridSprite;
@@ -62,9 +63,9 @@ int main()
 
 		//-- process --
 
-		drawToGrid(&matrixEditor, &window);
+		drawToGrid(&matrixEditor, &window, scalingFactor);
 		cellularMatrix.update();
-		drawGridToTexture(&cellularMatrix, &gridTexture);
+		drawGridToTexture(&cellularMatrix, &gridTexture, scalingFactor);
 
 		sf::Text fpsCounter(std::to_string((int)fps), mainFont, 20);
 
@@ -87,17 +88,17 @@ int main()
 	return 0;
 }
 
-void drawGridToTexture(ss::CellularMatrix* grid, sf::Texture* texture)
+void drawGridToTexture(ss::CellularMatrix* grid, sf::Texture* texture, unsigned int scalingFactor)
 {
-	unsigned int width = grid->width;
-	unsigned int height = grid->height;
+	unsigned int gridWidth = grid->width;
+	unsigned int gridHeight = grid->height;
 
 	sf::Image image;
-	image.create(width, height, sf::Color::White);
+	image.create(gridWidth * scalingFactor, gridHeight * scalingFactor, sf::Color::White);
 
-	for (unsigned int x = 0; x < width; x++)
+	for (unsigned int x = 0; x < gridWidth; x++)
 	{
-		for (unsigned int y = 0; y < height; y++)
+		for (unsigned int y = 0; y < gridHeight; y++)
 		{
 			sf::Color color(
 				grid->matrix[x][y]->getColor().r,
@@ -105,24 +106,30 @@ void drawGridToTexture(ss::CellularMatrix* grid, sf::Texture* texture)
 				grid->matrix[x][y]->getColor().b,
 				grid->matrix[x][y]->getColor().a);
 
-			image.setPixel(x, y, color);
+			for (unsigned int i = 0; i < scalingFactor; i++)
+			{
+				for (unsigned int j = 0; j < scalingFactor; j++)
+				{
+					image.setPixel(x * scalingFactor + i, y * scalingFactor + j, color);
+				}
+			}
 		}
 	}
 
 	texture->loadFromImage(image);
 }
 
-void drawToGrid(ss::CellularMatrixEditor* editor, sf::RenderWindow* window)
+void drawToGrid(ss::CellularMatrixEditor* editor, sf::RenderWindow* window, unsigned int scalingFactor)
 {
 	if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
 	{
 		sf::Vector2i pos = sf::Mouse::getPosition(*static_cast<sf::Window*>(window));
-		editor->draw(pos.x, pos.y);
+		editor->draw(pos.x / scalingFactor, pos.y / scalingFactor);
 	}
 	if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right))
 	{
 		sf::Vector2i pos = sf::Mouse::getPosition(*static_cast<sf::Window*>(window));
-		editor->erase(pos.x, pos.y);
+		editor->erase(pos.x / scalingFactor, pos.y / scalingFactor);
 	}
 
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))

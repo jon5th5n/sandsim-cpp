@@ -4,6 +4,8 @@
 
 using namespace ss;
 
+#define BASE_ELEMENT ssel::EmptyCell
+
 //== Cellular Matrix =====
 
 CellularMatrix::CellularMatrix(unsigned int _width, unsigned int _height)
@@ -13,17 +15,20 @@ CellularMatrix::CellularMatrix(unsigned int _width, unsigned int _height)
 
 	initializeMatrix();
 
-	outOfBoundCell = new ssel::EmptyCell;
+	outOfBoundCell = new BASE_ELEMENT;
 }
 
 void CellularMatrix::update()
 {
+	std::random_shuffle(std::begin(xUpdateArray), std::end(xUpdateArray));
 	for (unsigned int x = 0; x < width; x++)
 	{
-		for (unsigned int y = 0; y < height; y++)
+		for (int y = height - 1; y >= 0; y--)
 		{
-			ssel::Element* element = matrix[x][y];
-			element->step(x, y, this);
+			unsigned int xPos = xUpdateArray[x];
+
+			ssel::Element* element = matrix[xPos][y];
+			element->step(xPos, y, this);
 		}
 	}
 }
@@ -58,12 +63,12 @@ void CellularMatrix::switchCells(unsigned int x1, unsigned int y1, unsigned int 
 
 	if (x2 >= width || y2 >= height)
 	{
-		setExisting(x1, y1, new ssel::EmptyCell);
+		setExisting(x1, y1, new BASE_ELEMENT);
 		return;
 	}
 	if (x1 >= width || y1 >= height)
 	{
-		setExisting(x2, y2, new ssel::EmptyCell);
+		setExisting(x2, y2, new BASE_ELEMENT);
 		return;
 	}
 
@@ -76,11 +81,12 @@ void CellularMatrix::initializeMatrix()
 {
 	for (unsigned int i = 0; i < width; i++)
 	{
+		xUpdateArray.push_back(i);
 		std::vector<ssel::Element*> a;
 		matrix.push_back(a);
 		for (unsigned int j = 0; j < height; j++)
 		{
-			matrix[i].push_back(new ssel::EmptyCell);
+			matrix[i].push_back(new BASE_ELEMENT);
 		}
 	}
 }
@@ -90,7 +96,8 @@ void CellularMatrix::initializeMatrix()
 //== Cellular Matrix Editor =====
 
 CellularMatrixEditor::CellularMatrixEditor(CellularMatrix* mte) :
-	matrixToEdit(mte)
+	matrixToEdit(mte),
+	numberOfDrawableElements(ssel::Elements::size - 1)
 {}
 
 void CellularMatrixEditor::increaseBrushSize(int m)
@@ -100,8 +107,8 @@ void CellularMatrixEditor::increaseBrushSize(int m)
 void CellularMatrixEditor::decreaseBrushSize(int m)
 {
 	brushSize -= m;
-	if (brushSize < 0)
-		brushSize = 0;
+	if (brushSize <= 0)
+		brushSize = 1;
 }
 
 void CellularMatrixEditor::increaseSelectedIndex(int m)
@@ -112,7 +119,8 @@ void CellularMatrixEditor::increaseSelectedIndex(int m)
 void CellularMatrixEditor::decreaseSelectedIndex(int m)
 {
 	selectedIndex -= m;
-	selectedIndex = selectedIndex % numberOfDrawableElements;
+	if (selectedIndex < 0)
+		selectedIndex = numberOfDrawableElements - 1;
 }
 
 void CellularMatrixEditor::draw(unsigned int x, unsigned int y)
@@ -151,10 +159,10 @@ void CellularMatrixEditor::erase(unsigned int x, unsigned int y)
 			if (posX < 0 || posX > (int)matrixToEdit->width - 1 || posY < 0 || posY > (int)matrixToEdit->height)
 				continue;
 
-			if (typeid(matrixToEdit->matrix[posX][posY]) == typeid(ssel::EmptyCell))
+			if (typeid(matrixToEdit->matrix[posX][posY]) == typeid(BASE_ELEMENT))
 				continue;
 
-			matrixToEdit->setExisting(posX, posY, new ssel::EmptyCell);
+			matrixToEdit->setExisting(posX, posY, new BASE_ELEMENT);
 		}
 	}
 }

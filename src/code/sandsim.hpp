@@ -27,6 +27,9 @@ public:
 
 	ssel::Element* outOfBoundCell;
 
+private:
+	std::vector<unsigned int> xUpdateArray;
+
 public:
 	void update();
 
@@ -57,7 +60,7 @@ public:
 	int brushSize = 10;
 	int selectedIndex = 0;
 
-	const unsigned int numberOfDrawableElements = 2;
+	const unsigned int numberOfDrawableElements;
 
 public:
 	void increaseBrushSize(int m = 1);
