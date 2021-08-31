@@ -8,18 +8,18 @@ using namespace ss;
 
 //== Cellular Matrix =====
 
-CellularMatrix::CellularMatrix(unsigned int _width, unsigned int _height)
+CellularMatrix::CellularMatrix(unsigned int _width, unsigned int _height, float _gravity) :
+	width(_width),
+	height(_height),
+	outOfBoundCell(new BASE_ELEMENT),
+	gravity(_gravity)
 {
-	width = _width;
-	height = _height;
-
 	initializeMatrix();
-
-	outOfBoundCell = new BASE_ELEMENT;
 }
 
 void CellularMatrix::update()
 {
+	updateFrame = !updateFrame;
 	std::random_shuffle(std::begin(xUpdateArray), std::end(xUpdateArray));
 	for (unsigned int x = 0; x < width; x++)
 	{
@@ -28,7 +28,19 @@ void CellularMatrix::update()
 			unsigned int xPos = xUpdateArray[x];
 
 			ssel::Element* element = matrix[xPos][y];
+
+			if (element->lastUpdateFrame)
+				continue;
+			element->lastUpdateFrame = true;
+
 			element->step(xPos, y, this);
+		}
+	}
+	for (unsigned int x = 0; x < width; x++)
+	{
+		for (unsigned int y = 0; y < height; y++)
+		{
+			matrix[x][y]->lastUpdateFrame = false;
 		}
 	}
 }

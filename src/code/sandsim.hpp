@@ -17,15 +17,18 @@ namespace ss
 class CellularMatrix
 {
 public:
-	CellularMatrix(unsigned int _width, unsigned int _height);
+	CellularMatrix(unsigned int _width, unsigned int _height, float _gravity);
 
 public:
 	unsigned int width;
 	unsigned int height;
 
 	std::vector<std::vector<ssel::Element*>> matrix;
-
 	ssel::Element* outOfBoundCell;
+
+	bool updateFrame = 0;
+
+	float gravity;
 
 private:
 	std::vector<unsigned int> xUpdateArray;

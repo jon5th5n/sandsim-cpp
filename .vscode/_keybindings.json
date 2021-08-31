@@ -1,0 +1,23 @@
+// Place your key bindings in this file to overwrite the defaults
+[
+	{
+		"key": "f10",
+		"command": "workbench.action.tasks.runTask",
+		"args": "Build & Run: Release"
+	},
+	{
+		"key": "shift+f10",
+		"command": "workbench.action.tasks.runTask",
+		"args": "Run: Release"
+	},
+	{
+		"key": "f9",
+		"command": "workbench.action.tasks.runTask",
+		"args": "Build & Run: Debug"
+	},
+	{
+		"key": "shift+f9",
+		"command": "workbench.action.tasks.runTask",
+		"args": "Run: Debug"
+	}
+]

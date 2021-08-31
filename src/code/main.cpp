@@ -1,3 +1,6 @@
+#include <tchar.h>
+#include <windows.h>
+
 #include "../Platform/Platform.hpp"
 #include "sandsim.hpp"
 #include "sandsimelements.hpp"
@@ -39,7 +42,7 @@ int main()
 	unsigned int width = windowWidth / scalingFactor;
 	unsigned int height = windowHeight / scalingFactor;
 
-	ss::CellularMatrix cellularMatrix(width, height);
+	ss::CellularMatrix cellularMatrix(width, height, 1.0);
 	ss::CellularMatrixEditor matrixEditor(&cellularMatrix);
 
 	//-- setup matrix sprite

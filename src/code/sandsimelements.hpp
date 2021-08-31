@@ -41,16 +41,22 @@ public:
 public:
 	struct Color
 	{
-		uint8_t r;
-		uint8_t g;
-		uint8_t b;
-		uint8_t a;
+		uint8_t r, g, b, a;
+	};
+
+	struct Vector2f
+	{
+		float x, y;
 	};
 
 public:
 	float density;
 	Elements type;
 	StatesOfAggregation stateOfAggretion;
+
+	bool lastUpdateFrame = 0;
+
+	Vector2f velocity;
 
 protected:
 	Color color { 5, 5, 5, 255 };
